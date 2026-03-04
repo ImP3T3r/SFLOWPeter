@@ -20,6 +20,7 @@ class HotkeyListener(QObject):
         self._shift_held = False
         self._recording = False
         self._hands_free = False
+        self._suspended = False
         self._listener: keyboard.Listener | None = None
 
         # Double-tap detection
@@ -39,8 +40,18 @@ class HotkeyListener(QObject):
         if self._listener:
             self._listener.stop()
             self._listener = None
+            
+    def suspend(self):
+        self._suspended = True
+        
+    def resume(self):
+        # Small delay to clear event queue logic
+        self._suspended = False
 
     def _on_press(self, key):
+        if getattr(self, '_suspended', False):
+            return
+            
         is_ctrl = key in (keyboard.Key.ctrl_l, keyboard.Key.ctrl_r)
         is_shift = key in (keyboard.Key.shift, keyboard.Key.shift_r)
 
@@ -80,6 +91,9 @@ class HotkeyListener(QObject):
             self.pressed.emit()
 
     def _on_release(self, key):
+        if self._suspended:
+            return
+            
         is_ctrl = key in (keyboard.Key.ctrl_l, keyboard.Key.ctrl_r)
         is_shift = key in (keyboard.Key.shift, keyboard.Key.shift_r)
 

@@ -1,5 +1,6 @@
 import threading
-from flask import Flask, jsonify, render_template_string
+import os
+from flask import Flask, jsonify, render_template_string, send_from_directory
 from db.database import TranscriptionDB
 from config import DB_PATH
 
@@ -12,7 +13,7 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SFlow - Transcripciones</title>
+    <title>Howl - Transcripciones</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
@@ -22,9 +23,7 @@ HTML_TEMPLATE = """
         .text-preview { max-height: 2.6em; overflow: hidden; transition: max-height 0.3s ease; }
         .text-preview.expanded { max-height: 500px; }
         .copied { animation: flash 0.5s ease; }
-        @keyframes flash { 0%,100% { background: transparent; } 50% { background: rgba(80,220,120,0.1); } }
-        .purple { color: #8c50dc; }
-        .orange { color: #ffa028; }
+        @keyframes flash { 0%,100% { background: transparent; } 50% { background: rgba(255,255,255,0.1); } }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
@@ -35,9 +34,9 @@ HTML_TEMPLATE = """
         <!-- Header -->
         <div class="flex items-center justify-between mb-8">
             <div class="flex items-center gap-3">
-                <div class="text-2xl font-semibold">
-                    <span class="purple">S</span><span class="orange">f</span>
-                    <span class="text-white/60 text-lg ml-1">low</span>
+                <div class="text-2xl font-semibold flex items-center gap-2">
+                    <img src="/logo_small.png" alt="Howl Logo" class="w-8 h-8 rounded-full bg-white/10 p-1">
+                    <span>Howl</span>
                 </div>
                 <span class="text-xs text-white/30 bg-white/5 px-2 py-1 rounded-full" id="count-badge">-</span>
             </div>
@@ -69,7 +68,7 @@ HTML_TEMPLATE = """
 
         <!-- Footer -->
         <div class="mt-4 text-center text-white/15 text-xs">
-            SFlow &middot; Ctrl+Shift para grabar &middot; Groq Whisper
+            Howl &middot; Ctrl+Shift para grabar &middot; Groq Whisper
         </div>
     </div>
 
@@ -163,6 +162,11 @@ def index():
 def get_transcriptions():
     db = TranscriptionDB()
     return jsonify(db.get_recent(limit=200))
+
+@app.route("/logo_small.png")
+def logo():
+    root_dir = os.path.dirname(os.path.dirname(__file__))
+    return send_from_directory(root_dir, "logo_small.png")
 
 
 def start_web_server(port: int = 5000):

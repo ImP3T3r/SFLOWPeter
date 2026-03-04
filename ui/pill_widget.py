@@ -1,7 +1,13 @@
 import math
 from ctypes import c_void_p
-import AppKit
-import objc
+import sys
+if sys.platform == "darwin":
+    try:
+        import AppKit
+        import objc
+    except ImportError:
+        pass
+
 from PyQt6.QtWidgets import QWidget, QApplication
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QPainter, QColor, QPainterPath, QPen, QPixmap
@@ -34,12 +40,18 @@ class PillWidget(QWidget):
         self._target_width = PILL_WIDTH_IDLE
         self._current_width = float(PILL_WIDTH_IDLE)
         self._drag_pos = None
-        self._bg_color = QColor(15, 15, 15, int(255 * PILL_OPACITY))
+        self._bg_color = QColor(0, 0, 0, int(255 * PILL_OPACITY))
 
         self._logo = QPixmap(LOGO_PATH)
         if not self._logo.isNull():
+            # Apply color filter to force logo to pure white to ensure it stands out against pure black
+            painter = QPainter(self._logo)
+            painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
+            painter.fillRect(self._logo.rect(), Qt.GlobalColor.white)
+            painter.end()
+            
             self._logo = self._logo.scaled(
-                LOGO_SIZE, LOGO_SIZE,
+                LOGO_SIZE + 4, LOGO_SIZE + 4, # Slightly larger
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation,
             )
@@ -87,20 +99,26 @@ class PillWidget(QWidget):
 
     def _setup_native_macos(self):
         """Configure native macOS window to float above everything without stealing focus."""
-        ns_view = objc.objc_object(c_void_p=c_void_p(self.winId().__int__()))
-        ns_window = ns_view.window()
-        # Float above all normal windows (like Spotlight does)
-        ns_window.setLevel_(AppKit.NSFloatingWindowLevel)
-        # Never steal focus
-        ns_window.setStyleMask_(ns_window.styleMask() | AppKit.NSWindowStyleMaskNonactivatingPanel)
-        # Don't hide when app loses focus
-        ns_window.setHidesOnDeactivate_(False)
-        # Visible on all Spaces/desktops
-        ns_window.setCollectionBehavior_(
-            AppKit.NSWindowCollectionBehaviorCanJoinAllSpaces
-            | AppKit.NSWindowCollectionBehaviorStationary
-            | AppKit.NSWindowCollectionBehaviorFullScreenAuxiliary
-        )
+        if sys.platform != "darwin":
+            return
+            
+        try:
+            ns_view = objc.objc_object(c_void_p=c_void_p(self.winId().__int__()))
+            ns_window = ns_view.window()
+            # Float above all normal windows (like Spotlight does)
+            ns_window.setLevel_(AppKit.NSFloatingWindowLevel)
+            # Never steal focus
+            ns_window.setStyleMask_(ns_window.styleMask() | AppKit.NSWindowStyleMaskNonactivatingPanel)
+            # Don't hide when app loses focus
+            ns_window.setHidesOnDeactivate_(False)
+            # Visible on all Spaces/desktops
+            ns_window.setCollectionBehavior_(
+                AppKit.NSWindowCollectionBehaviorCanJoinAllSpaces
+                | AppKit.NSWindowCollectionBehaviorStationary
+                | AppKit.NSWindowCollectionBehaviorFullScreenAuxiliary
+            )
+        except Exception as e:
+            print(f"Warning: native macOS setup failed: {e}")
 
     def showEvent(self, event):
         """Called when the widget is first shown. Sets up native macOS properties."""
@@ -171,7 +189,7 @@ class PillWidget(QWidget):
         w = int(self._current_width)
         h = PILL_HEIGHT
         logo_pad = 6
-        logo_area = logo_pad + LOGO_SIZE + 4
+        logo_area = logo_pad + (LOGO_SIZE + 4) + 4
         content_w = w - logo_area - 4
         if content_w > 0 and self.visualizer.isVisible():
             self.visualizer.setGeometry(logo_area, 5, content_w, h - 10)
@@ -187,15 +205,15 @@ class PillWidget(QWidget):
         path.addRoundedRect(0.0, 0.0, float(w), float(h), PILL_CORNER_RADIUS, PILL_CORNER_RADIUS)
         painter.fillPath(path, self._bg_color)
 
-        # Border
-        painter.setPen(QPen(QColor(255, 255, 255, 12), 0.5))
+        # Border (slightly brighter minimal ring to enclose the pure black)
+        painter.setPen(QPen(QColor(255, 255, 255, 30), 1.0))
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawRoundedRect(0, 0, w, h, PILL_CORNER_RADIUS, PILL_CORNER_RADIUS)
 
         # Logo
         if not self._logo.isNull():
-            lx = 6
-            ly = (h - LOGO_SIZE) // 2
+            lx = 5
+            ly = (h - (LOGO_SIZE + 4)) // 2
             painter.drawPixmap(lx, ly, self._logo)
 
         # Status icons - positioned right of logo, centered in remaining space
@@ -203,7 +221,7 @@ class PillWidget(QWidget):
         icon_cy = h // 2
 
         if self._show_checkmark:
-            pen = QPen(QColor(80, 210, 120), 2)
+            pen = QPen(QColor(255, 255, 255), 2)
             pen.setCapStyle(Qt.PenCapStyle.RoundCap)
             pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
             painter.setPen(pen)
@@ -222,7 +240,7 @@ class PillWidget(QWidget):
                 painter.drawEllipse(int(icon_cx + dx) - 1, int(icon_cy + dy) - 1, s, s)
 
         elif self._show_error:
-            pen = QPen(QColor(255, 70, 70), 2)
+            pen = QPen(QColor(255, 255, 255), 2)
             pen.setCapStyle(Qt.PenCapStyle.RoundCap)
             painter.setPen(pen)
             painter.drawLine(icon_cx - 3, icon_cy - 3, icon_cx + 3, icon_cy + 3)

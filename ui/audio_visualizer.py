@@ -65,6 +65,7 @@ class AudioVisualizer(QWidget):
         self.update()
 
     def paintEvent(self, event):
+        from PyQt6.QtGui import QPainterPath, QLinearGradient
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
@@ -74,21 +75,60 @@ class AudioVisualizer(QWidget):
             painter.end()
             return
 
-        gap = 2
-        bar_w = max(2, (w - gap * (self.num_bars - 1)) // self.num_bars)
-        total_w = self.num_bars * bar_w + (self.num_bars - 1) * gap
-        x_off = (w - total_w) // 2
-        min_h = 3
+        cy = h / 2.0
+        
+        # Smooth entry and exit points for the wave
+        vals = [0.0] + self.bar_values + [0.0]
+        n_pts = len(vals)
+        step = w / (n_pts - 1)
 
-        for i, val in enumerate(self.bar_values):
-            bar_h = max(min_h, int(val * h * 0.85))
-            x = x_off + i * (bar_w + gap)
-            y = (h - bar_h) // 2
+        path = QPainterPath()
 
-            # Subtle white, opacity scales with amplitude
-            alpha = int(60 + val * 160)
-            painter.setBrush(QColor(255, 255, 255, alpha))
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.drawRoundedRect(x, y, bar_w, bar_h, 1.5, 1.5)
+        # Top half of the waveform (smooth cubic curve)
+        pts_top = []
+        for i, val in enumerate(vals):
+            # Apply a sine window so the wave tapers beautifully at the edges
+            window = np.sin((i / (n_pts - 1)) * np.pi)
+            amp = val * window * (h / 2.0) * 0.95
+            if amp < 0.6: 
+                amp = 0.6 # Minimum thickness (thin line when silent)
+            pts_top.append((i * step, cy - amp))
+
+        path.moveTo(pts_top[0][0], pts_top[0][1])
+        for i in range(n_pts - 1):
+            x1, y1 = pts_top[i]
+            x2, y2 = pts_top[i+1]
+            ctrl_x = (x1 + x2) / 2.0
+            path.cubicTo(ctrl_x, y1, ctrl_x, y2, x2, y2)
+
+        # Bottom half of the waveform (mirrored)
+        pts_bot = []
+        for i, val in enumerate(vals):
+            window = np.sin((i / (n_pts - 1)) * np.pi)
+            amp = val * window * (h / 2.0) * 0.95
+            if amp < 0.6: 
+                amp = 0.6
+            pts_bot.append((i * step, cy + amp))
+
+        # We draw the bottom half backwards to close the shape
+        for i in range(n_pts - 1, 0, -1):
+            x1, y1 = pts_bot[i]
+            x2, y2 = pts_bot[i-1]
+            ctrl_x = (x1 + x2) / 2.0
+            path.cubicTo(ctrl_x, y1, ctrl_x, y2, x2, y2)
+
+        path.closeSubpath()
+
+        # Futuristic glowing white fill
+        gradient = QLinearGradient(0, 0, w, 0)
+        gradient.setColorAt(0.0, QColor(255, 255, 255, 0))
+        gradient.setColorAt(0.2, QColor(255, 255, 255, 140))
+        gradient.setColorAt(0.5, QColor(255, 255, 255, 255))
+        gradient.setColorAt(0.8, QColor(255, 255, 255, 140))
+        gradient.setColorAt(1.0, QColor(255, 255, 255, 0))
+
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(gradient)
+        painter.drawPath(path)
 
         painter.end()

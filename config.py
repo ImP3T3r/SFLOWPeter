@@ -7,6 +7,10 @@ load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GROQ_MODEL = "whisper-large-v3-turbo"
 
+# OpenAI API
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_MODEL = "gpt-5.2"
+
 # Audio
 SAMPLE_RATE = 16000
 CHANNELS = 1
@@ -18,7 +22,7 @@ PILL_WIDTH_IDLE = 34
 PILL_WIDTH_RECORDING = 120
 PILL_WIDTH_STATUS = 52
 PILL_HEIGHT = 34
-PILL_OPACITY = 0.90
+PILL_OPACITY = 1.0
 PILL_CORNER_RADIUS = 17
 PILL_MARGIN_BOTTOM = 14
 LOGO_SIZE = 22
@@ -27,7 +31,7 @@ LOGO_SIZE = 22
 LOGO_PATH = os.path.join(os.path.dirname(__file__), "logo_small.png")
 
 # Audio Visualizer
-NUM_BARS = 8
+NUM_BARS = 16
 VIZ_FPS = 30
 BAR_DECAY = 0.80
 BAR_GAIN = 6.0
