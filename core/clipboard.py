@@ -3,11 +3,12 @@ import time
 import sys
 
 _saved_app: str | None = None
+_saved_hwnd: int | None = None
 is_mac = sys.platform == "darwin"
 
 def save_frontmost_app():
     """Save the currently focused application before recording starts."""
-    global _saved_app
+    global _saved_app, _saved_hwnd
     if is_mac:
         try:
             result = subprocess.run(
@@ -20,13 +21,16 @@ def save_frontmost_app():
                 _saved_app = name
         except Exception:
             pass
-    else:
-        # On Windows, PillWidget should not steal focus, so we might not need to restore it.
-        pass
+    elif sys.platform == "win32":
+        try:
+            import ctypes
+            _saved_hwnd = getattr(ctypes, "windll").user32.GetForegroundWindow()
+        except Exception:
+            pass
 
 def paste_text(text: str):
     """Copy text to clipboard and paste into the previously active app."""
-    global _saved_app
+    global _saved_app, _saved_hwnd
     if is_mac:
         # Copy to clipboard
         subprocess.run(["pbcopy"], input=text.encode("utf-8"), check=True)
@@ -49,17 +53,24 @@ def paste_text(text: str):
         )
         _saved_app = None
     else:
-        import pyperclip
+        import pyperclip, ctypes
         from pynput.keyboard import Controller, Key
         pyperclip.copy(text)
+        if _saved_hwnd:
+            try:
+                getattr(ctypes, "windll").user32.SetForegroundWindow(_saved_hwnd)
+                time.sleep(0.05)
+            except Exception:
+                pass
         keyboard = Controller()
         with keyboard.pressed(Key.ctrl):
             keyboard.press('v')
             keyboard.release('v')
+        _saved_hwnd = None
 
 def undo_and_paste_text(new_text: str):
     """Undo the previous paste (Ctrl+Z/Cmd+Z) and paste the new refined text."""
-    global _saved_app
+    global _saved_app, _saved_hwnd
     if is_mac:
         # Restore focus first
         if _saved_app:
@@ -86,16 +97,21 @@ def undo_and_paste_text(new_text: str):
         )
         _saved_app = None
     else:
-        import pyperclip
+        import pyperclip, ctypes
         from pynput.keyboard import Controller, Key
+        if _saved_hwnd:
+            try:
+                getattr(ctypes, "windll").user32.SetForegroundWindow(_saved_hwnd)
+                time.sleep(0.05)
+            except Exception:
+                pass
         pyperclip.copy(new_text)
         keyboard = Controller()
         with keyboard.pressed(Key.ctrl):
-            # Undo
             keyboard.press('z')
             keyboard.release('z')
         time.sleep(0.1)
         with keyboard.pressed(Key.ctrl):
-            # Paste
             keyboard.press('v')
             keyboard.release('v')
+        _saved_hwnd = None

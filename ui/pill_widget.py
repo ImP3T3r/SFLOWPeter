@@ -120,13 +120,27 @@ class PillWidget(QWidget):
         except Exception as e:
             print(f"Warning: native macOS setup failed: {e}")
 
-    def showEvent(self, event):
-        """Called when the widget is first shown. Sets up native macOS properties."""
-        super().showEvent(event)
+    def _setup_native_windows(self):
+        """Configure native Windows window to float without stealing focus."""
+        if sys.platform != "win32":
+            return
         try:
-            self._setup_native_macos()
+            import ctypes
+            user32 = getattr(ctypes, "windll").user32
+            hwnd = self.winId().__int__()
+            GWL_EXSTYLE = -20
+            WS_EX_NOACTIVATE = 0x08000000
+            WS_EX_TOOLWINDOW = 0x00000080
+            current = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+            user32.SetWindowLongW(hwnd, GWL_EXSTYLE, current | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW)
         except Exception as e:
-            print(f"Warning: native macOS setup failed: {e}")
+            print(f"Warning: native Windows setup failed: {e}")
+
+    def showEvent(self, event):
+        """Called when the widget is first shown. Sets up native platform properties."""
+        super().showEvent(event)
+        self._setup_native_macos()
+        self._setup_native_windows()
 
     def set_state(self, state: str):
         self._state = state
