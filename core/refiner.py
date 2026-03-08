@@ -1,13 +1,13 @@
-import openai
-from config import OPENAI_API_KEY, OPENAI_MODEL
+import google.generativeai as genai
+from config import GEMINI_API_KEY, GEMINI_MODEL
 
 def refine_prompt(text: str) -> str:
     """Takes a raw transcribed text and refines it into a high-quality prompt."""
-    if not OPENAI_API_KEY:
-        raise ValueError("OPENAI_API_KEY no configurada. Añádela en .env")
-        
-    client = openai.OpenAI(api_key=OPENAI_API_KEY)
-    
+    if not GEMINI_API_KEY:
+        raise ValueError("GEMINI_API_KEY no configurada. Añádela en .env")
+
+    genai.configure(api_key=GEMINI_API_KEY)
+
     system_prompt = (
         "Eres un experto 'Prompt Engineer'. Tu tarea es tomar el pensamiento o "
         "la instrucción dictada por el usuario (cruda y sin formato) y refinarla "
@@ -22,13 +22,10 @@ def refine_prompt(text: str) -> str:
         "4. Escribe ÚNICAMENTE el prompt refinado final como respuesta, sin añadir saludos, "
         "marcos ni opiniones propias."
     )
-    
-    response = client.chat.completions.create(
-        model=OPENAI_MODEL,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": text}
-        ]
+
+    model = genai.GenerativeModel(
+        model_name=GEMINI_MODEL,
+        system_instruction=system_prompt,
     )
-    
-    return response.choices[0].message.content.strip()
+    response = model.generate_content(text)
+    return response.text.strip()

@@ -44,14 +44,8 @@ class PillWidget(QWidget):
 
         self._logo = QPixmap(LOGO_PATH)
         if not self._logo.isNull():
-            # Apply color filter to force logo to pure white to ensure it stands out against pure black
-            painter = QPainter(self._logo)
-            painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
-            painter.fillRect(self._logo.rect(), Qt.GlobalColor.white)
-            painter.end()
-            
             self._logo = self._logo.scaled(
-                LOGO_SIZE + 4, LOGO_SIZE + 4, # Slightly larger
+                LOGO_SIZE + 4, LOGO_SIZE + 4,
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation,
             )

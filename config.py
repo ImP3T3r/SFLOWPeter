@@ -7,9 +7,17 @@ load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GROQ_MODEL = "whisper-large-v3-turbo"
 
-# OpenAI API
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-OPENAI_MODEL = "gpt-5.2"
+# Gemini API
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+
+# Load model from settings.json (editable from dashboard), fallback to default
+import json as _json
+_settings_path = os.path.join(os.path.dirname(__file__), "settings.json")
+try:
+    with open(_settings_path) as _f:
+        GEMINI_MODEL = _json.load(_f).get("gemini_model", "gemini-1.5-flash")
+except Exception:
+    GEMINI_MODEL = "gemini-1.5-flash"
 
 # Audio
 SAMPLE_RATE = 16000

@@ -3,8 +3,10 @@
 import sys
 import signal
 import threading
-from PyQt6.QtWidgets import QApplication
+import webbrowser
+from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu
 from PyQt6.QtCore import Qt, QObject, QTimer, pyqtSignal, pyqtSlot
+from PyQt6.QtGui import QIcon
 
 from ui.pill_widget import PillWidget
 from ui.refine_widget import RefineWidget
@@ -42,6 +44,21 @@ class HowlApp(QObject):
         self.transcriber = None
         self.db = None
         self.hotkey = None
+
+        self._setup_tray()
+
+    def _setup_tray(self):
+        from config import LOGO_PATH
+        self.tray = QSystemTrayIcon(QIcon(LOGO_PATH))
+        self.tray.setToolTip("SFlow")
+        menu = QMenu()
+        dashboard_action = menu.addAction("Abrir Dashboard")
+        dashboard_action.triggered.connect(lambda: webbrowser.open("http://localhost:5000"))
+        menu.addSeparator()
+        quit_action = menu.addAction("Salir SFlow")
+        quit_action.triggered.connect(QApplication.quit)
+        self.tray.setContextMenu(menu)
+        self.tray.show()
 
     def start(self):
         self.pill.show()

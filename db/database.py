@@ -16,6 +16,7 @@ class TranscriptionDB:
                     language TEXT,
                     duration_seconds REAL,
                     model TEXT DEFAULT 'whisper-large-v3-turbo',
+                    tokens INTEGER DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
@@ -23,12 +24,23 @@ class TranscriptionDB:
                 CREATE INDEX IF NOT EXISTS idx_transcriptions_created_at
                 ON transcriptions(created_at)
             """)
+            # Migration: add tokens column if it doesn't exist yet
+            try:
+                conn.execute("ALTER TABLE transcriptions ADD COLUMN tokens INTEGER DEFAULT 0")
+            except Exception:
+                pass
+            # Backfill tokens for existing records that have 0
+            rows = conn.execute("SELECT id, text FROM transcriptions WHERE tokens = 0").fetchall()
+            for row_id, text in rows:
+                conn.execute("UPDATE transcriptions SET tokens = ? WHERE id = ?",
+                             (max(1, len(text) // 4), row_id))
 
     def insert(self, text: str, language: str = None, duration_seconds: float = None, model: str = "whisper-large-v3-turbo") -> int:
+        tokens = max(1, len(text) // 4)
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(
-                "INSERT INTO transcriptions (text, language, duration_seconds, model) VALUES (?, ?, ?, ?)",
-                (text, language, duration_seconds, model),
+                "INSERT INTO transcriptions (text, language, duration_seconds, model, tokens) VALUES (?, ?, ?, ?, ?)",
+                (text, language, duration_seconds, model, tokens),
             )
             return cursor.lastrowid
 
@@ -53,3 +65,7 @@ class TranscriptionDB:
     def count(self) -> int:
         with sqlite3.connect(self.db_path) as conn:
             return conn.execute("SELECT COUNT(*) FROM transcriptions").fetchone()[0]
+
+    def get_total_tokens(self) -> int:
+        with sqlite3.connect(self.db_path) as conn:
+            return conn.execute("SELECT COALESCE(SUM(tokens), 0) FROM transcriptions").fetchone()[0]
